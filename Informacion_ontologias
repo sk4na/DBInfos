@@ -1,0 +1,57 @@
+En este archivo se encuentra una descripción detallada de las diferentes ontologías encontradas durante el escrutinio de bases de datos de 
+potencial interés para el estudio de las relaciones entre variantes genéticas y fenotipos patológicos.
+
+
+uPheno
+_________________________________________________
+
+Se trata de un proyecto de la mano de Monarch, el cual busca integrar ontologías de información fenotípica existentes para diferentes especies con el fin de permitir
+la búsqueda de fenotipos determinados de forma "cruzada" en todas las especies. Para ello, utilizan lo que han denominado "axiomas puente" que conectan terminos de diferentes ontologías
+utilizando axiomas de equivalencia o de subsunción.
+
+
+
+
+
+
+
+GENO (Genotype Ontology)
+_________________________________________________
+
+GENO (de Monarch) es una ontología que representa los niveles de variación genética especificados para genotipos, con el fin de favorecer la integración y el análisis de datos de genotipo a fenotipo (G2P). 
+El núcleo de la ontología es un grafo que descompone un genotipo en componentes más pequeños de variación, desde un genotipo completo que especifica la variación de secuencias en todo un genoma, 
+hasta variantes alélicas específicas y alteraciones de secuencias. El uso de GENO por tanto facilita el análisis integrado de datos G2P en los que las anotaciones de fenotipos se hacen a diferentes niveles de granularidad 
+en esta partonomía del genotipo. GENO también permite la descripción de diversos atributos de los genotipos y las variantes genéticas, como la cigosidad, la posición genómica, la expresión, la dominancia y
+las consecuencias funcionales de una variante determinada.
+
+
+
+
+
+
+
+EFO (Experimental Factor Ontology)
+_________________________________________________
+
+La Ontología de Factores Experimentales (EFO) proporciona una descripción sistemática de muchas variables experimentales disponibles en las bases de datos de EBI, así como para proyectos externos como el GWAS catalog del NHGRI.
+Combina partes de varias ontologías biológicas, como ChEBI, BFO (Basic Formal Ontology), etc. El objetivo de la EFO es favorecer la anotación, el análisis y la visualización de los datos manejados por muchos 
+de los grupos del EBI y como ontología central de OpenTargets.org
+
+
+Podemos encontrar términos referentes a fenotipos, como por ejemplo EFO:0000574 (Lymphoma), así como referentes a otro tipo de entidades, como puede ser medios de cultivo (EFO:0000579), etc. De igual forma,
+se encuentran términos que se refieren a propiedades de otros términos de la ontología, como por ejemplo has_disease_location (EFO:0000784). Como se ha mencionado antes, EFO combina partes de otras ontologías, utilizando
+en algunos casos términos de dichas ontologías (CHEBI:9467, RO:0004029, ETC), todos ellos teniendo la propiedad de EFO "hasDBXref".
+
+
+
+
+
+MONDO
+_________________________________________________
+
+Otro proyecto perteneciente a Monarch, Mondo es una ontología construida de forma semiautomática que integra múltiples fuentes de información sobre enfermedades para dar lugar a una ontología coherente.
+Las primeras versiones de Mondo fueron construidas de forma totalmente automática y utilizaron los identificadores de las bases de datos y ontologías usadas como fuente.
+Más tarde, se añadieron axiomas de ontología cruzadas curados manualmente, y se utilizó un sistema de identificación nativo de Mondo para evitar confusiones con las bases de datos originales.
+
+Una característica de Mondo es que va más allá de las referencias cruzadas normales. Han curado axiomas precisos de equivalencia 1:1 que se conectan con otros recursos de información, validados mediante OWL reasoning.
+Esto significa que es seguro propagar a través de estos términos desde OMIM, Orphanet, EFO y DOID.
