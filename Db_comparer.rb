@@ -1,9 +1,11 @@
+#! /usr/bin/env ruby
+
 require 'optparse'
 
 ############################################################################################
 ## METHODS
 ############################################################################################
-def load_file(file)
+def load_tabular_file(file)
   records = []
   File.open(file).each do |line|
     line.chomp!
@@ -13,40 +15,57 @@ def load_file(file)
  return records
 end
 
-def get_equivalent_term(file, diseaseID)
-  equivalent = []
-  terms_info = file.to_s.split("[Term]")
-  terms_info.each do |term_info|
-    if term_info.include?("id: #{diseaseID}")
-      equivalent = term_info.scan(/OMIM......./).last
-    end
+def load_id_file(file)
+  records = []
+  File.open(file).each do |line|
+    records << line.chomp!
   end
-  return equivalent
+ return records
 end
 
-def get_disease2phen(file, diseaseID)
+def load_obo(file)
+  records = {}
+  mondo_code = nil
+  omim_related = nil
+  File.open(file).each do |line|
+    line.chomp!
+    tag, value = line.split(": ", 2)
+    if tag == "[Term]"
+        if !mondo_code.nil?
+          records[mondo_code] = omim_related
+        end
+    elsif tag == 'id'
+      mondo_code = value
+    elsif tag == 'xref'
+      xcode, xmetadata = value.split(' ')
+      if xcode.include?('OMIM')
+        omim_related = xcode
+      end
+    end
+    records << fields 
+  end
+  records[mondo_code] = omim_related
+  return records
+end
+
+
+def get_disease2phen(relations, diseaseID)
   disease2phenotypes = []
-  file.each do |line|
-    if line.include?(diseaseID)
-      disease2phenotypes << line
+  relations.each do |relation|
+    mondo_id, related_code = relation
+    if mondo_id == diseaseID
+      disease2phenotypes << relation
     end
   end
   return disease2phenotypes
 end
 
 def db_comparer(d2p_1, d2p_2, mondo_disease, omim_equivalent)
-  phenotypes_1 = []
-  d2p_1.each do |d2p_pair|
-    phenotypes_1 << d2p_pair[1]
-  end
+  phenotypes_1 = d2p_1.map{|record| record[1]}
+  phenotypes_2 = d2p_2.map{|record| record[3]}
 
-  phenotypes_2 = []
-  d2p_2.each do |d2p_pair|
-    phenotypes_2 << d2p_pair[3]
-  end
-
-  not_in_mondo = (phenotypes_2 - phenotypes_1)
-  not_in_omim = (phenotypes_1 - phenotypes_2)
+  not_in_mondo = phenotypes_2 - phenotypes_1
+  not_in_omim = phenotypes_1 - phenotypes_2
 
   if omim_equivalent == nil
     puts "#{mondo_disease} no tiene término equivalente en OMIM" 
@@ -99,24 +118,19 @@ end.parse!
 ############################################################################################
 ## MAIN
 ############################################################################################
-mondo_obo = load_file(options[:source_file])
-mondo_d2p = load_file(options[:mondo_file])
-omim_d2p = load_file(options[:omim_file])
+mondo2omim = load_obo(options[:source_file])
+mondo_d2p = load_tabular_file(options[:mondo_file])
+omim_d2p = load_tabular_file(options[:omim_file])
 
 if options[:from_file]
-  mondo_diseases = load_file(options[:from_file])
-  mondo_diseases.each do |mondo_disease|
-    omim_equivalent = get_equivalent_term(mondo_obo, mondo_disease)
-    d2p_1 = get_disease2phen(mondo_d2p, mondo_disease)
-    d2p_2 = get_disease2phen(omim_d2p, omim_equivalent)
-    db_comparer(d2p_1, d2p_2, mondo_disease, omim_equivalent)
-  end
+  mondo_diseases = load_id_file(options[:from_file])
 else
-  omim_equivalent = get_equivalent_term(mondo_obo, options[:disease])
-  d2p_1 = get_disease2phen(mondo_d2p, options[:disease])
-  d2p_2 = get_disease2phen(omim_d2p, omim_equivalent) 
-  db_comparer(d2p_1, d2p_2, options[:disease], omim_equivalent)
+  mondo_diseases = [options[:disease]]
 end
 
-  
-
+mondo_diseases.each do |mondo_disease|
+  omim_equivalent = mondo2omim[mondo_disease]
+  mondo_d2p_filtered = get_disease2phen(mondo_d2p, mondo_disease)
+  omim_d2p_filtered = get_disease2phen(omim_d2p, omim_equivalent)
+  db_comparer(mondo_d2p_filtered, omim_d2p_filtered, mondo_disease, omim_equivalent)
+end
