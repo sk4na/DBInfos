@@ -19,7 +19,7 @@ end
 def load_id_file(file)
   records = []
   File.open(file).each do |line|
-    records << line.chomp!
+    records << line
   end
  return records
 end
@@ -27,20 +27,24 @@ end
 def get_disease2phen(relations, diseaseID)
   disease2phenotypes = []
   relations.each do |relation|
-    mondo_id, related_code = relation
-    if mondo_id == diseaseID
+    listed_disease_id, related_code = relation
+    if listed_disease_id == diseaseID
       disease2phenotypes << relation
     end
   end
   return disease2phenotypes
 end
 
-def db_comparer(d2p_1, d2p_2, mondo_disease, omim_equivalent)
-  phenotypes_1 = d2p_1.map{|record| record[1]}
-  phenotypes_2 = d2p_2.map{|record| record[3]}
+def db_comparer(d2p_mondo, d2p_omim, mondo_disease, omim_equivalent, from_file)
+  phenotypes_1 = d2p_mondo.map{|record| record[1]}
+  phenotypes_2 = d2p_omim.map{|record| record[3]}
 
   not_in_mondo = phenotypes_2 - phenotypes_1
   not_in_omim = phenotypes_1 - phenotypes_2
+
+  if from_file
+    puts mondo_disease + "\t" + omim_equivalent + "\t" + not_in_mondo.length + "\t" + not_in_omim.length 
+  end 
 
   if omim_equivalent == nil
     puts "#{mondo_disease} no tiene término equivalente en OMIM" 
@@ -62,19 +66,19 @@ options = {}
 OptionParser.new do |opts|
   opts.banner = "Usage: #{File.basename(__FILE__)} [options]"
 
-  options[:mondo_file] = nil
+  options[:mondo_relations] = nil
   opts.on("-m", "--mondo PATH", "Path to mondo diseases to phenotypes file") do |item|
-    options[:mondo_file] = item
+    options[:mondo_relations] = item
   end
 
-  options[:omim_file] = nil
+  options[:omim_relations] = nil
   opts.on("-o", "--omim PATH", "Path to omim diseases to phenotypes file") do |item|
-    options[:omim_file] = item
+    options[:omim_relations] = item
   end
 
-  options[:source_file] = nil
-  opts.on("-s", "--source PATH", "Path to source file of the MONDO-OMIM equivalent terms") do |item|
-    options[:source_file] = item
+  options[:source_ontology] = nil
+  opts.on("-s", "--source PATH", "Path to source file of the MONDO ontology file") do |item|
+    options[:source_ontology] = item
   end
 
   options[:disease] = nil
@@ -93,19 +97,21 @@ end.parse!
 ############################################################################################
 ## MAIN
 ############################################################################################
-mondo2omim = load_obo(options[:source_file])
-mondo_d2p = load_tabular_file(options[:mondo_file])
-omim_d2p = load_tabular_file(options[:omim_file])
+mondo2omim = load_obo(options[:source_ontology])
+mondo_d2p = load_tabular_file(options[:mondo_relations])
+omim_d2p = load_tabular_file(options[:omim_relations])
 
 if options[:from_file]
   mondo_diseases = load_id_file(options[:from_file])
+  from_file = true
 else
   mondo_diseases = [options[:disease]]
+  from_file = nil
 end
 
 mondo_diseases.each do |mondo_disease|
   omim_equivalent = mondo2omim[mondo_disease]
   mondo_d2p_filtered = get_disease2phen(mondo_d2p, mondo_disease)
   omim_d2p_filtered = get_disease2phen(omim_d2p, omim_equivalent)
-  db_comparer(mondo_d2p_filtered, omim_d2p_filtered, mondo_disease, omim_equivalent)
+  db_comparer(mondo_d2p_filtered, omim_d2p_filtered, mondo_disease, omim_equivalent, from_file)
 end
