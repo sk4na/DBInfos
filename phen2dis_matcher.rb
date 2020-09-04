@@ -1,49 +1,11 @@
 #! /usr/bin/env ruby
 
 require 'optparse'
-require './ontology.rb'
+require './dbtools.rb'
 
 ############################################################################################
 ## METHODS
 ############################################################################################
-def load_tabular_file(file)
-  records = []
-  File.open(file).each do |line|
-    line.chomp!
-    fields = line.split("\t")
-    records << fields 
-  end
- return records
-end
-
-def load_id_file(file)
-  records = []
-  File.open(file).each do |line|
-    records << line.chomp
-  end
- return records
-end
-
-def get_ids(relations)
-  ids = []
-  relations.each do |relation|
-    ids << relation[0]
-  end
-  ids = ids.uniq
-  return ids  
-end  
-
-def get_disease2phen(relations, diseaseID)
-  disease2phenotypes = []
-  relations.each do |relation|
-    listed_disease_id, related_code = relation
-    if listed_disease_id == diseaseID
-      disease2phenotypes << relation
-    end
-  end
-  return disease2phenotypes
-end
-
 def phenotype_match(omim_ids, omim_relations, mondo_ids, mondo_relations)
   mondo_phenotypes = []
   best_matches = []
@@ -59,7 +21,7 @@ def phenotype_match(omim_ids, omim_relations, mondo_ids, mondo_relations)
           count += 1
         end
       end
-      mim2matchnumber[mondo_id] = count  
+      mim2matchnumber[mondo_id] = "#{count} of #{omim_phenotypes.length}"  
     end
     best_matches << mim2matchnumber.sort_by {|k,v| v}.reverse[0]
   end    
