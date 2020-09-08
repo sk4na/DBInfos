@@ -8,22 +8,22 @@ require './dbtools.rb'
 ############################################################################################
 def phenotype_match(omim_ids, omim_relations, mondo_ids, mondo_relations)
   mondo_phenotypes = []
+  omim_phenotypes = []
   best_matches = []
   mim2matchnumber = {}
-  omim_ids.each do |omim_id|
-    omim_d2p = get_disease2phen(omim_relations, omim_id)
-    omim_phenotypes = omim_d2p.map{|record| record[3]}
-    mondo_ids.each do |mondo_id|
+  mondo_ids.each do |mondo_id|
+    mondo_phenotypes = get_disease2phen(mondo_relations, mondo_id).map{|record| record[1]}
+    omim_ids.each do |omim_id|
       count = 0
-      mondo_phenotypes = get_disease2phen(mondo_relations, mondo_id).map{|record| record[1]}
-      omim_phenotypes.each do |phenotype|
-        if mondo_phenotypes.include?(phenotype)
+      omim_phenotypes = get_disease2phen(omim_relations, omim_id).map{|record| record[3]}
+      mondo_phenotypes.each do |phenotype|
+        if omim_phenotypes.include?(phenotype)
           count += 1
         end
       end
-      mim2matchnumber[mondo_id] = "#{count} of #{omim_phenotypes.length}"  
+      mim2matchnumber[omim_id] = count 
     end
-    best_matches << mim2matchnumber.sort_by {|k,v| v}.reverse[0]
+    best_matches << [mondo_id, mim2matchnumber.select {|k,v| v == mim2matchnumber.values.max}]
   end    
   puts best_matches
 end
