@@ -9,6 +9,8 @@ def load_obo(file)
         if !mondo_code.nil?
           records[mondo_code] = omim_related
         end
+        omim_related = 'nil'
+        mondo_code = nil
     elsif tag == 'id'
       mondo_code = value
     elsif tag == 'xref'
@@ -59,13 +61,19 @@ def get_ids(relations)
   return ids  
 end  
 
-def get_disease2phen(relations, diseaseID)
-  disease2phenotypes = []
-  relations.each do |relation|
-    listed_disease_id, related_code = relation
-    if listed_disease_id == diseaseID
-      disease2phenotypes << relation
+def load_profiles(file, col_disease_id, col_hpo_id)
+  profiles = {}
+  File.open(file).each do |line|
+    fields = line.chomp.split("\t")
+    disease_id = fields[col_disease_id]
+    hpo_id = fields[col_hpo_id]
+    
+    query = profiles[disease_id]
+    if query.nil?
+      profiles[disease_id] = [hpo_id]
+    else
+      query << hpo_id
     end
   end
-  return disease2phenotypes
+  return profiles
 end

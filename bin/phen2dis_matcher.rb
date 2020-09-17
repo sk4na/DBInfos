@@ -10,30 +10,31 @@ def phenotype_match(profiles_A, profiles_B)
   best_matches = []
   profiles_A.each do |disease_id_A, phenotypes_A|
     best_count = 0
-    best_ids = []
+    best_ids = {}
     profiles_B.each do |disease_id_B, phenotypes_B|
       count = (phenotypes_A & phenotypes_B).length
       if count >= best_count
         best_count = count
-        best_ids << disease_id_B
+        best_ids[disease_id_B] = best_count
       end
     end
+    real_best_ids = best_ids.select {|k,v| v == best_count}
     if best_count > 0
-      percentages = get_percentages(best_count, best_ids, profiles_B)
+      percentages = get_percentages(best_count, real_best_ids.keys, profiles_B)
       max_percentages = percentages.max
-
       best_percentages = []
       percentages.each_with_index do |perc, i|
         if perc == max_percentages
-          best_percentages << [best_ids[i], perc]
+          best_percentages << [real_best_ids.keys[i], perc]
         end
       end
       best_matches << [disease_id_A, best_percentages] 
-    end
+    else
+      best_matches << [disease_id_A, 'nil']
+    end  
   end    
   best_matches.each do |disID_A, data|
-    puts disID_A
-    puts data.inspect
+    puts "#{disID_A}" + "\t" + "#{data.inspect}"
   end
 end
 
@@ -43,23 +44,6 @@ def get_percentages(best_count, best_ids, profiles_B)
     percentages << best_count.fdiv(profiles_B[best_id].length)
   end
   return percentages
-end
-
-def load_profiles(file, col_disease_id, col_hpo_id)
-  profiles = {}
-  File.open(file).each do |line|
-    fields = line.chomp.split("\t")
-    disease_id = fields[col_disease_id]
-    hpo_id = fields[col_hpo_id]
-    
-    query = profiles[disease_id]
-    if query.nil?
-      profiles[disease_id] = [hpo_id]
-    else
-      query << hpo_id
-    end
-  end
-  return profiles
 end
 
 ############################################################################################
@@ -85,11 +69,7 @@ end.parse!
 ############################################################################################
 ## MAIN
 ############################################################################################
-#mondo_relations = load_tabular_file(options[:mondo_relations])
 mondo_profiles = load_profiles(options[:mondo_relations], 0, 1)
-#omim_relations = load_tabular_file(options[:omim_relations])
 omim_profiles = load_profiles(options[:omim_relations], 0, 3)
-#omim_ids = get_ids(omim_relations)
-#mondo_ids = get_ids(mondo_relations)
 
 phenotype_match(mondo_profiles, omim_profiles)

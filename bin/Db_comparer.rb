@@ -6,42 +6,24 @@ require '../lib/dbtools.rb'
 ############################################################################################
 ## METHODS
 ############################################################################################
-def get_equivalent_term(file, diseaseID)
-  terms_info = file.to_s.split("[Term]")
-  terms_info.each do |term_info|
-    if term_info.include?(diseaseID)
-      equivalent = termino.split(" ").grep(/OMIM:/)
+def db_comparer(mondo_d2p, omim_d2p)
+  mondo_to_omim.each do |mondo_dis, equivalent_omim|
+    phenotypes_mondo = mondo_d2p[mondo_dis]
+    phenotypes_omim = omim_d2p[equivalent_omim]
+
+    not_in_mondo = (phenotypes_omim - phenotypes_mondo)
+    not_in_omim = (phenotypes_mondo - phenotypes_omim)
+
+    if not_in_mondo.length == 0 && not_in_omim.length == 0
+      puts "No se encontraron diferencias en los fenotipos asociados a #{d1} y su equivalente #{d2}"
+    elsif not_in_mondo.length != 0 && not_in_omim.length != 0
+      puts "#{d1} contiene el/los fenotipo/s #{not_in_omim}, no encontrados en OMIM, y #{d2} contiene el/los fenotipo/s #{not_in_mondo}, no encontrados en MONDO"  
+    elsif not_in_mondo.length == 0 && not_in_omim.length != 0
+      puts "#{d1} contiene el/los fenotipo/s #{not_in_omim}, no encontrados en OMIM"
+    else not_in_mondo.length != 0 && not_in_omim.length == 0
+      puts "#{d2} contiene el/los fenotipo/s #{not_in_mondo}, no encontrados en MONDO"  
     end
-  end
-  return equivalent
-end
-
-def db_comparer(d2p_1, d2p_2)
-  d1 = options[:disease]
-  d2 = omim_equivalent
-
-  phenotypes_1 = []
-  d2p_1.each do |d2p_pair|
-    phenotypes_1 << d2p_pair[1]
-  end
-
-  phenotypes_2 = []
-  d2p_2.each do |d2p_pair|
-    phenotypes_2 << d2p_pair[3]
-  end
-
-  not_in_mondo = (phenotypes_2 - phenotypes_1)
-  not_in_omim = (phenotypes_1 - phenotypes_2)
-
-  if not_in_mondo.length == 0 && not_in_omim.length == 0
-    puts "No se encontraron diferencias en los fenotipos asociados a #{d1} y su equivalente #{d2}"
-  elsif not_in_mondo.length != 0 && not_in_omim.length != 0
-    puts "#{d1} contiene el/los fenotipo/s #{not_in_omim}, no encontrados en OMIM, y #{d2} contiene el/los fenotipo/s #{not_in_mondo}, no encontrados en MONDO"  
-  elsif not_in_mondo.length == 0 && not_in_omim.length != 0
-    puts "#{d1} contiene el/los fenotipo/s #{not_in_omim}, no encontrados en OMIM"
-  else not_in_mondo.length != 0 && not_in_omim.length == 0
-    puts "#{d2} contiene el/los fenotipo/s #{not_in_mondo}, no encontrados en MONDO"  
-  end
+  end  
 end
 
 ############################################################################################
@@ -63,7 +45,7 @@ OptionParser.new do |opts|
 
   options[:relations_file] = nil
   opts.on("-r", "--relations PATH", "Path to ontology file with the MONDO-OMIM equivalent terms") do |item|
-    options[:source_file] = item
+    options[:relations_file] = item
   end
 
   options[:disease] = nil
@@ -75,6 +57,11 @@ OptionParser.new do |opts|
   opts.on("-s", "--summary BOOLEAN", "If set to true, creates a file with a summary of the results obtained from the search") do |item|
     options[:summary] = item
   end
+
+  options[:verbose] = false
+  opts.on("-v", "--verbose BOOLEAN", "If set to true, displays more information about the comparison between databases") do |item|
+    options[:verbose] = item
+  end
   
 end.parse!
 
@@ -82,13 +69,14 @@ end.parse!
 ############################################################################################
 ## MAIN
 ############################################################################################
-mondo_obo = load_file([:relations_file])
-mondo_d2p = load_file([:mondo_file])
-omim_d2p = load_file([:omim_file])
+mondo_to_omim = load_obo(options[:relations_file])
+mondo_d2p = load_profiles(options[:mondo_file], 0, 1)
+omim_d2p = load_profiles(options[:omim_file], 0, 3)
 
-omim_equivalent = get_equivalent_term(mondo_obo, options[:disease])
-
-d2p_1 = get_disease2phen(mondo, options[:disease])
-d2p_2 = get_disease2phen(omim, omim_equivalent)
-
-db_comparer(d2p_1, d2p_2)
+if options[:verbose]
+  db_comparer(mondo_d2p, omim_d2p)
+else
+  mondo_d2p.keys.each do |diseaseid|
+    puts mondo_to_omim[diseaseid]
+  end  
+end    
