@@ -9,28 +9,28 @@ require '../lib/dbtools.rb'
 def phenotype_match(profiles_A, profiles_B)
   best_matches = []
   profiles_A.each do |disease_id_A, phenotypes_A|
+    matches = []
     best_count = 0
-    best_ids = {}
     profiles_B.each do |disease_id_B, phenotypes_B|
       count = (phenotypes_A & phenotypes_B).length
       if count >= best_count
+        matches << [disease_id_B, count]
         best_count = count
-        best_ids[disease_id_B] = best_count
       end
     end
-    real_best_ids = best_ids.select {|k,v| v == best_count}
-    if best_count > 0
-      percentages = get_percentages(best_count, real_best_ids.keys, profiles_B)
+    if matches.length > 0
+      best_id_matches = matches.select{|k| k.last == best_count}.map{|k| f.first}
+      percentages = get_percentages(best_count, best_id_matches, profiles_B)
       max_percentages = percentages.max
       best_percentages = []
       percentages.each_with_index do |perc, i|
         if perc == max_percentages
-          best_percentages << [real_best_ids.keys[i], perc]
+          best_percentages << [best_id_matches[i], perc]
         end
       end
       best_matches << [disease_id_A, best_percentages] 
     else
-      best_matches << [disease_id_A, 'nil']
+      best_matches << [disease_id_A, []]
     end  
   end    
   best_matches.each do |disID_A, data|
