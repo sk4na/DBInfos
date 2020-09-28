@@ -44,7 +44,7 @@ OptionParser.new do |opts|
   end
 
   options[:relations_file] = nil
-  opts.on("-r", "--relations PATH", "Path to ontology file with the MONDO-OMIM equivalent terms") do |item|
+  opts.on("-r", "--relations PATH", "Path to ontology file containing the equivalent terms") do |item|
     options[:relations_file] = item
   end
 
@@ -52,6 +52,11 @@ OptionParser.new do |opts|
   opts.on("-d", "--disease STRING", "The MONDO disease wanted to be compared with its OMIM equivalent") do |item|
     options[:disease] = item
   end
+
+  options[:from_list] = nil
+  opts.on("-l", "--list PATH", "Path to file containing a list of MONDOIDs used as input (optional)") do |item|
+    options[:from_list] = item
+  end  
 
   options[:summary] = false
   opts.on("-s", "--summary BOOLEAN", "If set to true, creates a file with a summary of the results obtained from the search") do |item|
@@ -73,10 +78,16 @@ mondo_to_omim = load_obo(options[:relations_file])
 mondo_d2p = load_profiles(options[:mondo_file], 0, 1)
 omim_d2p = load_profiles(options[:omim_file], 0, 3)
 
+
 if options[:verbose]
   db_comparer(mondo_d2p, omim_d2p)
-else
+elsif options[:from_list]
+  mondos_from_list = load_tabular_file(options[:from_list])
+  mondos_from_list.each do |mondo_from_list|
+    puts "#{mondo_from_list[0]}" + "\t" + "#{mondo_to_omim[mondo_from_list[0]]}"
+  end 
+else   
   mondo_d2p.keys.each do |diseaseid|
-    puts mondo_to_omim[diseaseid]
+    puts "#{diseaseid}" + "\t" + "#{mondo_to_omim[diseaseid]}"
   end  
 end    

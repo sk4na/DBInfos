@@ -8,22 +8,25 @@ require '../lib/dbtools.rb'
 ############################################################################################
 def phenotype_match(profiles_A, profiles_B)
   best_matches = []
+  percentages_A = {}
   profiles_A.each do |disease_id_A, phenotypes_A|
     matches = []
     best_count = 0
     profiles_B.each do |disease_id_B, phenotypes_B|
       count = (phenotypes_A & phenotypes_B).length
-      if count >= best_count
+      if count >= best_count && count != 0
         matches << [disease_id_B, count]
         best_count = count
       end
     end
+    percentages_A[disease_id_A] = best_count.fdiv(profiles_A[disease_id_A].length)
     if matches.length > 0
-      best_id_matches = matches.select{|k| k.last == best_count}.map{|k| f.first}
-      percentages = get_percentages(best_count, best_id_matches, profiles_B)
-      max_percentages = percentages.max
+      best_id_matches = matches.select{|k| k.last == best_count}.map{|k| k.first}
+      percentages_B = get_percentages(best_count, best_id_matches, profiles_B)
+      max_percentages = percentages_B.max
+
       best_percentages = []
-      percentages.each_with_index do |perc, i|
+      percentages_B.each_with_index do |perc, i|
         if perc == max_percentages
           best_percentages << [best_id_matches[i], perc]
         end
@@ -34,7 +37,9 @@ def phenotype_match(profiles_A, profiles_B)
     end  
   end    
   best_matches.each do |disID_A, data|
-    puts "#{disID_A}" + "\t" + "#{data.inspect}"
+    data.each do |related_disBID_and_perc|
+    puts "#{disID_A}" + "\t" + "#{percentages_A[disID_A]}" + "\t" + "#{related_disBID_and_perc.first}" + "\t" + "#{related_disBID_and_perc.last}"
+    end
   end
 end
 
