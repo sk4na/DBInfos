@@ -2,6 +2,7 @@
 
 library(optparse)
 library(ggplot2)
+library(ggExtra)
 
 ############################################################################################
 ## OPTPARSE
@@ -26,8 +27,16 @@ opt <- parse_args(OptionParser(option_list = Option_list))
 data <- read.table(opt$data_file, sep="\t", header=TRUE)
 
 pdf(paste(opt$output, '.pdf', sep=""))
-	ggplot(data, aes(x=data[[opt$x_column]], y=data[[opt$y_column]])) +
- 		geom_point(shape=1, alpha=0.5) +
+	g = ggplot(data, aes(x=data[[opt$x_column]], y=data[[opt$y_column]])) +
+	 	geom_point(shape=1, alpha=0.5) +
 		xlab("Profiles A phenotype match percentages") +
 		ylab("Profiles B phenotype match percentages")
+	ggExtra::ggMarginal(
+		g,
+		type = 'density',
+		margins = 'both',
+		size = 5,
+		colour = '#000000',
+		fill = '#A6A39E'
+	)	
 dev.off()

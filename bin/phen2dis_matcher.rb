@@ -59,13 +59,23 @@ OptionParser.new do |opts|
   opts.banner = "Usage: #{File.basename(__FILE__)} [options]"
 
   options[:mondo_relations] = nil
-  opts.on("-m", "--mondo PATH", "Path to mondo diseases to phenotypes file") do |item|
+  opts.on("-m", "--mondo PATH", "Path to file containing MONDO disease IDs to phenotypes") do |item|
     options[:mondo_relations] = item
   end
 
-  options[:omim_relations] = nil
-  opts.on("-o", "--omim PATH", "Path to omim diseases to phenotypes file") do |item|
-    options[:omim_relations] = item
+  options[:target] = nil
+  opts.on("-t", "--target PATH", "Path to file containing the target disease to phenotype relationships") do |item|
+    options[:target] = item
+  end
+
+  options[:source] = nil
+  opts.on("-s", "--source STRING", "Source of the file containing the target relations: annotation, OMIM, obo") do |item|
+    options[:source] = item
+  end
+
+  options[:keyword] = nil
+  opts.on("-k", "--keywod STRING", "If source is 'obo', select the keyword that will be searched as targeted xref") do |item|
+    options[:keyword] = item
   end
 
 end.parse!
@@ -74,7 +84,14 @@ end.parse!
 ############################################################################################
 ## MAIN
 ############################################################################################
-mondo_profiles = load_profiles(options[:mondo_relations], 0, 1)
-omim_profiles = load_profiles(options[:omim_relations], 0, 3)
+mondo_profiles = load_profiles(options[:mondo_relations], 0, 1, 'MONDO')
 
-phenotype_match(mondo_profiles, omim_profiles)
+if options[:source] == 'annotation'
+  target_profiles = load_profiles(options[:target], 5, 4, 'OMIM')
+elsif options[:source] == 'OMIM'
+  target_profiles = load_profiles(options[:target], 0, 3, 'OMIM')
+elsif options[:source] == 'obo'
+  target_profiles = load_obo(options[:target], options[:keyword])  
+end
+
+phenotype_match(mondo_profiles, target_profiles)

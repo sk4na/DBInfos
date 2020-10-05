@@ -58,9 +58,9 @@ OptionParser.new do |opts|
     options[:from_list] = item
   end  
 
-  options[:summary] = false
-  opts.on("-s", "--summary BOOLEAN", "If set to true, creates a file with a summary of the results obtained from the search") do |item|
-    options[:summary] = item
+  options[:keyword] = nil
+  opts.on("-k", "--keyword STRING", "Relate MONDO ids with 'keyword' from mondo obo file") do |item|
+    options[:keyword] = item
   end
 
   options[:verbose] = false
@@ -74,9 +74,9 @@ end.parse!
 ############################################################################################
 ## MAIN
 ############################################################################################
-mondo_to_omim = load_obo(options[:relations_file])
-mondo_d2p = load_profiles(options[:mondo_file], 0, 1)
-omim_d2p = load_profiles(options[:omim_file], 0, 3)
+mondo_to_keyword = load_obo(options[:relations_file], options[:keyword])
+mondo_d2p = load_profiles(options[:mondo_file], 0, 1, 'MONDO')
+omim_d2p = load_profiles(options[:omim_file], 0, 3, 'OMIM')
 
 
 if options[:verbose]
@@ -84,10 +84,10 @@ if options[:verbose]
 elsif options[:from_list]
   mondos_from_list = load_tabular_file(options[:from_list])
   mondos_from_list.each do |mondo_from_list|
-    puts "#{mondo_from_list[0]}" + "\t" + "#{mondo_to_omim[mondo_from_list[0]]}"
+    puts "#{mondo_from_list[0]}" + "\t" + "#{mondo_to_keyword[mondo_from_list[0]]}"
   end 
 else   
   mondo_d2p.keys.each do |diseaseid|
-    puts "#{diseaseid}" + "\t" + "#{mondo_to_omim[diseaseid]}"
+    puts "#{diseaseid}" + "\t" + "#{mondo_to_keyword[diseaseid]}"
   end  
 end    
