@@ -67,6 +67,11 @@ OptionParser.new do |opts|
   opts.on("-v", "--verbose BOOLEAN", "If set to true, displays more information about the comparison between databases") do |item|
     options[:verbose] = item
   end
+
+  options[:reverse] = false
+  opts.on("-R", "--reverse BOOLEAN", "If true, the mondo file is used as target, and the target file is used as the main file") do |item|
+    options[:reverse] = item
+  end
   
 end.parse!
 
@@ -84,7 +89,11 @@ if options[:verbose]
 elsif options[:from_list]
   mondos_from_list = load_tabular_file(options[:from_list])
   mondos_from_list.each do |mondo_from_list|
-    puts "#{mondo_from_list[0]}" + "\t" + "#{mondo_to_keyword[mondo_from_list[0]]}"
+    if options[:reverse]
+      puts "#{mondo_from_list[0]}" + "\t" + "#{mondo_to_keyword.key([mondo_from_list[0]])}"
+    else
+      puts "#{mondo_from_list[0]}" + "\t" + "#{mondo_to_keyword[mondo_from_list[0]]}"
+    end  
   end 
 else   
   mondo_d2p.keys.each do |diseaseid|
