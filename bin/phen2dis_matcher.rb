@@ -78,6 +78,11 @@ OptionParser.new do |opts|
     options[:keyword] = item
   end
 
+  options[:reverse] = false
+  opts.on("-r", "--reverse BOOLEAN", "If true, the mondo file is used as target, and the target file is used as the main file") do |item|
+    options[:reverse] = item
+  end
+
 end.parse!
 
 
@@ -87,11 +92,15 @@ end.parse!
 mondo_profiles = load_profiles(options[:mondo_relations], 0, 1, 'MONDO')
 
 if options[:source] == 'annotation'
-  target_profiles = load_profiles(options[:target], 5, 4, 'OMIM')
+  target_profiles = load_profiles(options[:target], 0, 3, 'OMIM')
 elsif options[:source] == 'OMIM'
   target_profiles = load_profiles(options[:target], 0, 3, 'OMIM')
 elsif options[:source] == 'obo'
   target_profiles = load_obo(options[:target], options[:keyword])  
 end
 
-phenotype_match(mondo_profiles, target_profiles)
+if options[:reverse]
+  phenotype_match(target_profiles, mondo_profiles)
+else
+  phenotype_match(mondo_profiles, target_profiles)
+end  

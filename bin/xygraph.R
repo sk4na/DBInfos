@@ -25,12 +25,13 @@ opt <- parse_args(OptionParser(option_list = Option_list))
 ## MAIN
 ############################################################################################
 data <- read.table(opt$data_file, sep="\t", header=TRUE)
-
+xlab_name <- paste(strsplit(as.character(data[1,1]),":")[[1]][1], " profiles phenotype match percentages")
+ylab_name <- paste(strsplit(as.character(data[1,3]),":")[[1]][1], " profiles phenotype match percentages")
 pdf(paste(opt$output, '.pdf', sep=""))
 	g = ggplot(data, aes(x=data[[opt$x_column]], y=data[[opt$y_column]])) +
 	 	geom_point(shape=1, alpha=0.5) +
-		xlab("Profiles A phenotype match percentages") +
-		ylab("Profiles B phenotype match percentages")
+		xlab(xlab_name) +
+		ylab(ylab_name)
 	ggExtra::ggMarginal(
 		g,
 		type = 'density',
