@@ -1,7 +1,8 @@
 #! /usr/bin/env ruby
 
 require 'optparse'
-require '../lib/dbtools.rb'
+require '../lib/dbtools'
+require '../lib/profiletools'
 
 ############################################################################################
 ## METHODS
@@ -34,12 +35,12 @@ OptionParser.new do |opts|
   opts.banner = "Usage: #{File.basename(__FILE__)} [options]"
 
   options[:mondo_file] = nil
-  opts.on("-m", "--mondo PATH", "Path to mondo file") do |item|
+  opts.on("-m", "--mondo PATH", "Path to mondo .prof file") do |item|
     options[:mondo_file] = item
   end
 
   options[:omim_file] = nil
-  opts.on("-o", "--omim PATH", "Path to omim file") do |item|
+  opts.on("-o", "--omim PATH", "Path to omim .prof file") do |item|
     options[:omim_file] = item
   end
 
@@ -67,11 +68,6 @@ OptionParser.new do |opts|
   opts.on("-v", "--verbose BOOLEAN", "If set to true, displays more information about the comparison between databases") do |item|
     options[:verbose] = item
   end
-
-  options[:reverse] = false
-  opts.on("-R", "--reverse BOOLEAN", "If true, the mondo file is used as target, and the target file is used as the main file") do |item|
-    options[:reverse] = item
-  end
   
 end.parse!
 
@@ -80,8 +76,8 @@ end.parse!
 ## MAIN
 ############################################################################################
 mondo_to_keyword = load_obo(options[:relations_file], options[:keyword])
-mondo_d2p = load_profiles(options[:mondo_file], 0, 1, 'MONDO')
-omim_d2p = load_profiles(options[:omim_file], 0, 3, 'OMIM')
+mondo_d2p = load_profiles(options[:mondo_file], 0, 1)
+omim_d2p = load_profiles(options[:omim_file], 0, 1)
 
 
 if options[:verbose]
@@ -89,14 +85,14 @@ if options[:verbose]
 elsif options[:from_list]
   mondos_from_list = load_tabular_file(options[:from_list])
   mondos_from_list.each do |mondo_from_list|
-    if options[:reverse]
-      puts "#{mondo_from_list[0]}" + "\t" + "#{mondo_to_keyword.key([mondo_from_list[0]])}"
+    if !mondo_from_list[0].include?('MONDO')
+      puts "#{mondo_from_list[0]}\t#{mondo_to_keyword.key([mondo_from_list[0]])}"
     else
-      puts "#{mondo_from_list[0]}" + "\t" + "#{mondo_to_keyword[mondo_from_list[0]]}"
+      puts "#{mondo_from_list[0]}\t#{mondo_to_keyword[mondo_from_list[0]]}"
     end  
   end 
 else   
   mondo_d2p.keys.each do |diseaseid|
-    puts "#{diseaseid}" + "\t" + "#{mondo_to_keyword[diseaseid]}"
+    puts "#{diseaseid}\t#{mondo_to_keyword[diseaseid]}"
   end  
 end    

@@ -1,21 +1,21 @@
 def load_obo(file, keyword)
   records = {}
-  mondo_code = nil
+  disease_code = nil
   keyword_related = []
   File.open(file).each do |line|
     line.chomp!
     tag, value = line.split(": ", 2)
     if tag == "[Term]"
-        if !mondo_code.nil?
+        if !disease_code.nil?
           if keyword_related.length == 0
             keyword_related = []
           end  
-          records[mondo_code] = keyword_related
+          records[disease_code] = keyword_related
         end
         keyword_related = []
-        mondo_code = nil
+        disease_code = nil
     elsif tag == 'id'
-      mondo_code = value
+      disease_code = value
     elsif tag == 'xref'
       xcode, xmetadata = value.split(' ')
       if xcode.include?(keyword)
@@ -26,7 +26,7 @@ def load_obo(file, keyword)
   if keyword_related.length == 0
     keyword_related = []
   end
-  records[mondo_code] = keyword_related ## Esta linea hace falta para guardar el caso final  
+  records[disease_code] = keyword_related ## Esta linea hace falta para guardar el caso final  
   return records
 end
 
@@ -65,22 +65,4 @@ def get_ids(relations)
   end
   ids = ids.uniq
   return ids  
-end  
-
-def load_profiles(file, col_disease_id, col_hpo_id, keyword)
-  profiles = {}
-  File.open(file).each do |line|
-    fields = line.chomp.split("\t")
-    if fields[col_disease_id].match(/#{keyword}/)
-        disease_id = fields[col_disease_id]
-        hpo_id = fields[col_hpo_id]    
-        query = profiles[disease_id]
-        if query.nil?
-          profiles[disease_id] = [hpo_id]
-        else
-          query << hpo_id
-        end
-    end
-  end  
-  return profiles
 end

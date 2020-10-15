@@ -1,7 +1,8 @@
 #! /usr/bin/env ruby
 
 require 'optparse'
-require '../lib/dbtools.rb'
+require '../lib/dbtools'
+require '../lib/profiletools'
 
 ############################################################################################
 ## METHODS
@@ -58,29 +59,14 @@ options = {}
 OptionParser.new do |opts|
   opts.banner = "Usage: #{File.basename(__FILE__)} [options]"
 
-  options[:mondo_relations] = nil
-  opts.on("-m", "--mondo PATH", "Path to file containing MONDO disease IDs to phenotypes") do |item|
-    options[:mondo_relations] = item
+  options[:mondo_profiles] = nil
+  opts.on("-m", "--mondo PATH", "Path to .prof file containing MONDO disease IDs to phenotypes") do |item|
+    options[:mondo_profiles] = item
   end
 
-  options[:target] = nil
-  opts.on("-t", "--target PATH", "Path to file containing the target disease to phenotype relationships") do |item|
-    options[:target] = item
-  end
-
-  options[:source] = nil
-  opts.on("-s", "--source STRING", "Source of the file containing the target relations: annotation, OMIM, obo") do |item|
-    options[:source] = item
-  end
-
-  options[:keyword] = nil
-  opts.on("-k", "--keywod STRING", "If source is 'obo', select the keyword that will be searched as targeted xref") do |item|
-    options[:keyword] = item
-  end
-
-  options[:reverse] = false
-  opts.on("-r", "--reverse BOOLEAN", "If true, the mondo file is used as target, and the target file is used as the main file") do |item|
-    options[:reverse] = item
+  options[:target_profiles] = nil
+  opts.on("-t", "--target PATH", "Path to .prof file containing the target disease to phenotype relationships") do |item|
+    options[:target_profiles] = item
   end
 
 end.parse!
@@ -89,18 +75,15 @@ end.parse!
 ############################################################################################
 ## MAIN
 ############################################################################################
-mondo_profiles = load_profiles(options[:mondo_relations], 0, 1, 'MONDO')
+mondo_profiles = load_profiles(options[:mondo_profiles], 0, 1)
+target_profiles = load_profiles(options[:target_profiles], 0, 1)    
 
-if options[:source] == 'annotation'
-  target_profiles = load_profiles(options[:target], 0, 3, 'OMIM')
-elsif options[:source] == 'OMIM'
-  target_profiles = load_profiles(options[:target], 0, 3, 'OMIM')
-elsif options[:source] == 'obo'
-  target_profiles = load_obo(options[:target], options[:keyword])  
-end
+mondo_prof_avg_size = prof_avg_size(mondo_profiles)
+target_prof_avg_size = prof_avg_size(target_profiles)
 
-if options[:reverse]
+if target_prof_avg_size <= mondo_prof_avg_size
   phenotype_match(target_profiles, mondo_profiles)
 else
   phenotype_match(mondo_profiles, target_profiles)
-end  
+end
+
