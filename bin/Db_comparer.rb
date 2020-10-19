@@ -76,13 +76,14 @@ end.parse!
 ## MAIN
 ############################################################################################
 mondo_to_keyword = load_obo(options[:relations_file], options[:keyword])
-mondo_d2p = load_profiles(options[:mondo_file], 0, 1)
-omim_d2p = load_profiles(options[:omim_file], 0, 1)
+mondo_d2p = load_profiles(options[:mondo_file])
+omim_d2p = load_profiles(options[:omim_file])
 
 
 if options[:verbose]
   db_comparer(mondo_d2p, omim_d2p)
-elsif options[:from_list]
+elsif !options[:from_list].nil?
+  abort('File not found') if !File.exist?(options[:from_list])
   mondos_from_list = load_tabular_file(options[:from_list])
   mondos_from_list.each do |mondo_from_list|
     if !mondo_from_list[0].include?('MONDO')

@@ -69,14 +69,19 @@ OptionParser.new do |opts|
     options[:target_profiles] = item
   end
 
+  options[:profile_files] = nil
+  opts.on("-p", "--profile_files STRING", "String comma separated with paths to profile files") do |item|
+    options[:profile_files] = item.split(',')
+  end
+
 end.parse!
 
 
 ############################################################################################
 ## MAIN
 ############################################################################################
-mondo_profiles = load_profiles(options[:mondo_profiles], 0, 1)
-target_profiles = load_profiles(options[:target_profiles], 0, 1)    
+mondo_profiles = load_profiles(options[:mondo_profiles])
+target_profiles = load_profiles(options[:target_profiles])    
 
 mondo_prof_avg_size = prof_avg_size(mondo_profiles)
 target_prof_avg_size = prof_avg_size(target_profiles)

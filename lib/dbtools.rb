@@ -7,24 +7,15 @@ def load_obo(file, keyword)
     tag, value = line.split(": ", 2)
     if tag == "[Term]"
         if !disease_code.nil?
-          if keyword_related.length == 0
-            keyword_related = []
-          end  
           records[disease_code] = keyword_related
         end
         keyword_related = []
-        disease_code = nil
     elsif tag == 'id'
       disease_code = value
     elsif tag == 'xref'
-      xcode, xmetadata = value.split(' ')
-      if xcode.include?(keyword)
-        keyword_related << xcode
-      end
+      xcode, xmetadata = value.split(' ')     
+      keyword_related << xcode if xcode.include?(keyword)
     end
-  end
-  if keyword_related.length == 0
-    keyword_related = []
   end
   records[disease_code] = keyword_related ## Esta linea hace falta para guardar el caso final  
   return records
