@@ -59,19 +59,14 @@ options = {}
 OptionParser.new do |opts|
   opts.banner = "Usage: #{File.basename(__FILE__)} [options]"
 
-  options[:mondo_profiles] = nil
-  opts.on("-m", "--mondo PATH", "Path to .prof file containing MONDO disease IDs to phenotypes") do |item|
-    options[:mondo_profiles] = item
+  options[:profiles] = nil
+  opts.on("-p", "--profiles PATH", "Path to .prof file containing disease to phenotype relationships") do |item|
+    options[:profiles] = item
   end
 
   options[:target_profiles] = nil
-  opts.on("-t", "--target PATH", "Path to .prof file containing the target disease to phenotype relationships") do |item|
+  opts.on("-t", "--target_profiles PATH", "Path to target .prof file containing disease to phenotype relationships. File containing the biggest avg size profiles goes here") do |item|
     options[:target_profiles] = item
-  end
-
-  options[:profile_files] = nil
-  opts.on("-p", "--profile_files STRING", "String comma separated with paths to profile files") do |item|
-    options[:profile_files] = item.split(',')
   end
 
 end.parse!
@@ -80,15 +75,10 @@ end.parse!
 ############################################################################################
 ## MAIN
 ############################################################################################
-mondo_profiles = load_profiles(options[:mondo_profiles])
+mondo_profiles = load_profiles(options[:profiles])
 target_profiles = load_profiles(options[:target_profiles])    
 
-mondo_prof_avg_size = prof_avg_size(mondo_profiles)
-target_prof_avg_size = prof_avg_size(target_profiles)
 
-if target_prof_avg_size <= mondo_prof_avg_size
-  phenotype_match(target_profiles, mondo_profiles)
-else
-  phenotype_match(mondo_profiles, target_profiles)
-end
+phenotype_match(mondo_profiles, target_profiles)
+
 
