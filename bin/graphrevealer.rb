@@ -15,42 +15,39 @@ OptionParser.new do |opts|
     options[:output] = item
   end
 
+  options[:input_folder] = nil
+  opts.on("-i", "--input_folder PATH", "Path to folder with Monarch data") do |item|
+    options[:input_folder] = item
+  end
+
 end.parse!
 
 
 ############################################################################################
 ## MAIN
 ############################################################################################
-Dir.chdir("/mnt/home/users/bio_267_uma/apareslar/projects/Db_documents/monarch_graph/tsv/all_associations/")
-files = Dir.entries(Dir.pwd) - [".", ".."]
+files = Dir.glob(File.join(options[:input_folder], '*.all.tsv.gz'))
 all_nodes = []
-files.each do |filename|
-	nodes_file = filename.split(".", 2)[0]
-	array_nodes_file = nodes_file.split("_")
+files.each do |file_path|
+	filename = File.basename(file_path, '.all.tsv.gz')
+	array_nodes_file = filename.split("_")
 	all_nodes << array_nodes_file
 end
 
 g = GraphViz.new( :G, :type => :digraph )
 
-## Adding the nodes that will form the graph ##
-variant = g.add_nodes("variant")
-genotype = g.add_nodes("genotype")
-gene = g.add_nodes("gene")
-function = g.add_nodes("function")
-disease = g.add_nodes("disease")
-chemical = g.add_nodes("chemical")
-marker = g.add_nodes("marker")
-interaction = g.add_nodes("interaction")
-model = g.add_nodes("model")
-publication = g.add_nodes("publication")
-cases = g.add_nodes("cases")
-homology = g.add_nodes("homology")
-phenotype = g.add_nodes("phenotype")
-pathway = g.add_nodes("pathway")
-
 ## Assigning the edges ##
-all_nodes.each do |pair|
-	g.add_edges(pair[0], pair[1])
+included_nodes = []
+all_nodes.each do |nodeA, nodeB|
+	if !included_nodes.include?(nodeA)
+		included_nodes << nodeA
+		g.add_nodes(nodeA)
+	end
+	if !included_nodes.include?(nodeB)
+		included_nodes << nodeB
+		g.add_nodes(nodeB)
+	end
+	g.add_edges(nodeA, nodeB)
 end
 
 ## Saving the final graph ##
