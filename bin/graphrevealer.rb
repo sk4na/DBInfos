@@ -49,23 +49,24 @@ end
 
 def get_relations_attributes(headers)
 	attributes = {}
-	headers.each do |k, v|
-		relation = File.basename(k, '.all.tsv.gz')
-		attributes[relation] = attr_parser(v.reject {|attrib| attrib.include?("subject") || attrib.include?("object")})
+	headers.each do |filepath, header|
+		relation = File.basename(filepath, '.all.tsv.gz')
+		attributes[relation] = attr_parser(header.reject {|attrib| attrib.include?("subject") || attrib.include?("object")})
 	end
 	return attributes
 end
 
 def get_nodes_attributes(headers)
 	attributes = {}
-	headers.each do |k, v|
-			nodes = File.basename(k, '.all.tsv.gz').split("_")
+	headers.each do |filepath, header|
+		nodes = File.basename(filepath, '.all.tsv.gz').split("_")
 		if !attributes.keys.include?(nodes[0])
-				attributes[nodes[0]] = attr_parser(v.select {|attrib| attrib.include?("subject") || attrib.include?("object")})
-			elsif !attributes.keys.include?(nodes[1])
-				attributes[nodes[1]] = attr_parser(v.select {|attrib| attrib.include?("subject") || attrib.include?("object")})
-			end	
-		end
+			attributes[nodes[0]] = attr_parser(header.select {|attrib| attrib.include?("subject") || attrib.include?("object")})
+		end	
+		if !attributes.keys.include?(nodes[1])
+			attributes[nodes[1]] = attr_parser(header.select {|attrib| attrib.include?("subject") || attrib.include?("object")})
+		end	
+	end
 	return attributes
 end
 
