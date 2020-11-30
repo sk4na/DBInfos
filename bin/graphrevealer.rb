@@ -7,22 +7,22 @@ require 'zlib'
 ############################################################################################
 ## METHODS
 ############################################################################################
-def header_parser(str)
-	arr = str.split("\t")
-	arr.map! do |attr|
-	    if attr == 'subject'
-	        attr = 'id'
-	    elsif attr.include?('subject_')
-	        attr = attr.split('subject_')[1]
-	    elsif attr == 'object'
-	        attr = ""
-	    elsif attr.include?('object_')
-	        attr = attr.split('object_')[1]
+def attr_parser(arr)
+	arr.map! do |attrib|
+	    if attrib == 'subject'
+	        attrib = 'id'
+	    elsif attrib.include?('subject_')
+	        attrib = attrib.split('subject_')[1]
+	    elsif attrib == 'object'
+	        attrib = ""
+	    elsif attrib.include?('object_')
+	        attrib = attrib.split('object_')[1]
 	    else
-	    	attr = attr    
+	    	attrib = attrib    
 	    end    
 	end
-	arr.reject!(&:empty?)    
+	arr.reject!(&:empty?)
+	return arr.uniq    
 end
 
 def all_values_equal?(hash)
@@ -40,41 +40,67 @@ def get_headerNcompare(file_list)
 	headers = {}
 	file_list.each do |file|
 		Zlib::GzipReader.open(file) { |gz|
-			headers[file] = header_parser(gz.readlines[0].chomp)
+			headers[file] = gz.readline.chomp.split("\t")
 		}	
 	end
 	all_values_equal?(headers)
 	return headers		
 end
 
-def makegraph(arr_nodes, output_path, file_attributes)
-	common_attr = file_attributes.values[0]
-	diff_attr = file_attributes["/mnt/home/users/bio_267_uma/apareslar/projects/Db_documents/test/monarch_graph/tsv/all_associations/disease_phenotype.all.tsv.gz"]
+def get_relations_attributes(headers)
+	attributes = {}
+	headers.each do |k, v|
+		relation = File.basename(k, '.all.tsv.gz')
+		attributes[relation] = attr_parser(v.reject {|attrib| attrib.include?("subject") || attrib.include?("object")})
+	end
+	return attributes
+end
 
+def get_nodes_attributes(headers)
+	attributes = {}
+	headers.each do |k, v|
+			nodes = File.basename(k, '.all.tsv.gz').split("_")
+		if !attributes.keys.include?(nodes[0])
+				attributes[nodes[0]] = attr_parser(v.select {|attrib| attrib.include?("subject") || attrib.include?("object")})
+			elsif !attributes.keys.include?(nodes[1])
+				attributes[nodes[1]] = attr_parser(v.select {|attrib| attrib.include?("subject") || attrib.include?("object")})
+			end	
+		end
+	return attributes
+end
+
+def makegraph(headers, output_path)
 	## Creating graph and setting global attributes ##
 	g = GraphViz.new( :G, :type => :digraph )
 	g.node[:shape] = "record"
+
+	## Getting nodes ##
+	arr_nodes = []
+	headers.keys.each do |file_path|
+		array_nodes_file = File.basename(file_path, '.all.tsv.gz').split("_")
+		arr_nodes << array_nodes_file
+	end
+	
+	## Getting attributes for nodes and their relations ##
+	node_attributes = get_nodes_attributes(headers)
+	relation_attributes = get_relations_attributes(headers)
 
 	## Assigning the edges ##
 	included_nodes = []
 	arr_nodes.each_with_index do |nodeAnodeB, i|
 		nodeA, nodeB = nodeAnodeB
-		relation = g.add_nodes("relation_#{i}")
+		relation = g.add_nodes("#{nodeA}_#{nodeB}")
 		relation[:color] = "green"
-		relation[:label] = "{ #{nodeA}_#{nodeB} |{#{common_attr[5]}| #{common_attr[6]}| #{common_attr[7]}| #{common_attr[8]}| #{common_attr[9]}| #{common_attr[10]}| #{common_attr[11]}}}"
+		relation[:label] = "{ #{nodeA}_#{nodeB} |{#{relation_attributes["#{nodeA}_#{nodeB}"].join("| ")}}}"
 		if !included_nodes.include?(nodeA)
 			included_nodes << nodeA
 			node_A = g.add_nodes(nodeA)
-			if nodeA != 'diesease'
-				node_A[:label] = "{ #{nodeA} |{#{common_attr[0]}| #{common_attr[1]}| #{common_attr[2]}| #{common_attr[3]}| #{common_attr[4]}}}"
-			else
-				node_A[:label] = "{ #{nodeA} |{#{diff_attr[0]}| #{diff_attr[1]}| #{diff_attr[2]}| #{diff_attr[3]}| #{diff_attr[4]} #{diff_attr[12]}| #{diff_attr[13]}| #{diff_attr[14]}| #{diff_attr[15]}}}"
-			end	
+			node_A[:label] = "{ #{nodeA} |{#{node_attributes["#{nodeA}"].join("| ")}}}"
 		end
 		if !included_nodes.include?(nodeB)
 			included_nodes << nodeB
 			node_B= g.add_nodes(nodeB)
-			node_B[:label] = "{ #{nodeB} |{#{common_attr[0]}| #{common_attr[1]}| #{common_attr[2]}| #{common_attr[3]}| #{common_attr[4]}}}"
+			node_B[:label] = "{ #{nodeB} |{#{node_attributes["#{nodeB}"].join("| ")}}}"
 		end
 		g.add_edges(nodeA, relation)
 		g.add_edges(relation, nodeB)
@@ -108,16 +134,9 @@ end.parse!
 ## MAIN
 ############################################################################################
 files = Dir.glob(File.join(options[:input_folder], '*.all.tsv.gz'))
-all_nodes = []
-files.each do |file_path|
-	filename = File.basename(file_path, '.all.tsv.gz')
-	array_nodes_file = filename.split("_")
-	all_nodes << array_nodes_file
-end
 
 puts "Getting the headers and looking for differences..."
 headers = get_headerNcompare(files)
-put headers
 
 
-makegraph(all_nodes, options[:output], headers)
+makegraph(headers, options[:output])
