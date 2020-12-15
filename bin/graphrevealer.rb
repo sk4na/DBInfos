@@ -3,6 +3,7 @@
 require 'optparse'
 require 'ruby-graphviz'
 require 'zlib'
+require 'benchmark'
 
 ############################################################################################
 ## METHODS
@@ -63,16 +64,18 @@ def get_attributes(file_list)
 							header_values[field] = [value]
 							end
 						else
-							query << value #unless query.include?(value)
+							query << value
 						end
 					end
 				end				
 			end	
 		}
-		header_values.keys.each do |key|
+		#header_values.keys.each do |key|
+		header_values.each do |key, values|
+			values.uniq!
 			# puts "#{file}		#{key}		#{header_values[key].first}"
-			if header_values[key].length > 10
-				header_values[key] = "test"
+			if values.length > 10
+				values = ["test"]
 			end	
 		end	
 		attributes[file] = header_values		
@@ -82,46 +85,54 @@ end
 
 def load_value(hash_to_load, key, value)
 	query = hash_to_load[key]
-		if query.nil?
-			hash_to_load[key] = value
+	if query.nil?
+		value = [value] if value.class != Array
+		hash_to_load[key] = value
+	else
+		if value.class == Array
+			query.concat(value)
 		else
 			query << value
-		end	
+		end
+	end	
 end	
 
-def attr_merger(files_hash, nodes, node_attributes)
-	nodeX_attributes = {}
+def attr_merger(files_hash)
 	nodes_attributes = {}
-	nodes.each do |node|
-		files_hash.each do |file_path, header_with_values|
-			if file_path.include?(node)
-				pair = File.basename(file_path, '.all.tsv.gz').split("_")
-				nodeA, nodeB = pair
-				node_attributes.each do |attribute|
-					value = header_with_values[attribute]
-					puts value
-					if nodeA == node
-						if attribute == "subject"
-							load_value(nodeX_attributes, "id", value)
-						elsif attribute == "subject_label"
-							load_value(nodeX_attributes, "label", value)
-						elsif attribute == "subject_taxon"
-							load_value(nodeX_attributes, "taxon", value)
-						elsif attribute == "subject_taxon_label"
-							load_value(nodeX_attributes, "taxon_label", value)
-						end
-					elsif nodeB == node
-						if attribute == "object"
-							load_value(nodeX_attributes, "id", value)
-						elsif attribute == "object_label"
-							load_value(nodeX_attributes, "label", value)
-						end	
-					end
-				end
+	files_hash.each do |file_path, header_with_values|
+		nodeA, nodeB = File.basename(file_path, '.all.tsv.gz').split("_")
+		nodeX_attributes = nodes_attributes[nodeA]
+		if nodeX_attributes.nil?
+			nodeX_attributes = {}
+			nodes_attributes[nodeA] = nodeX_attributes
+		end
+		%w[subject subject_label subject_taxon subject_taxon_label].each do |attribute|
+			value = header_with_values[attribute]
+			if attribute == "subject"
+				load_value(nodeX_attributes, "id", value)
+			elsif attribute == "subject_label"
+				load_value(nodeX_attributes, "label", value)
+			elsif attribute == "subject_taxon"
+				load_value(nodeX_attributes, "taxon", value)
+			elsif attribute == "subject_taxon_label"
+				load_value(nodeX_attributes, "taxon_label", value)
 			end
 		end
-	nodes_attributes[node] = nodeX_attributes	
-	end	
+
+		nodeX_attributes = nodes_attributes[nodeB]
+		if nodeX_attributes.nil?
+			nodeX_attributes = {}
+			nodes_attributes[nodeB] = nodeX_attributes
+		end
+		%w[object object_label].each do |attribute|
+			value = header_with_values[attribute]
+			if attribute == "object"
+				load_value(nodeX_attributes, "id", value)
+			elsif attribute == "object_label"
+				load_value(nodeX_attributes, "label", value)
+			end	
+		end
+	end
 	return nodes_attributes										
 end	
 
@@ -235,26 +246,20 @@ files = Dir.glob(File.join(options[:input_folder], '*.all.tsv.gz'))
 
 puts "Getting the headers and looking for differences..."
 attributes = get_attributes(files[0..1])
+
 #check_headers(attributes)	
 
 ## Getting nodes and relations ##
+
 pairs_with_field_data = {}
-nodes = []
 attributes.each do |file_path, field_and_values|
 	pair = File.basename(file_path, '.all.tsv.gz').split("_")
-	pair.each do |node|
-		nodes << node
-	end	
 	pairs_with_field_data[pair] = field_and_values.keys
 end
 relations = pairs_with_field_data.keys
 
-
-## Getting attributes for nodes and their relations ##
-node_attributes = get_nodes_attributes(pairs_with_field_data)
 relation_attributes = get_relations_attributes(pairs_with_field_data)
 
 ## Creating hash with node name and the values of their attributes, obtained from merging the values of all different files for each node ##
-nodes_with_attributes = attr_merger(attributes, nodes, node_attributes)
-
+nodes_with_attributes = attr_merger(attributes)
 # makegraph(files, relations, nodes_with_attributes, relation_attributes, attributes, options[:output])
