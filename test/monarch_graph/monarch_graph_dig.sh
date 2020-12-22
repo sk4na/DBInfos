@@ -15,4 +15,4 @@ source ~soft_bio_267/initializes/init_graphviz
 #mkdir monarch_output_data
 #../../bin/graphrevealer.rb -o 'monarch_output_data/monarch_graph' -i /mnt/home/users/bio_267_uma/apareslar/projects/Db_documents/test/monarch_graph/tsv/all_associations/
 #../../bin/graphrevealer.rb -i sample_data/ -g 'monarch_output_data/monarch_graph_test'
-../../bin/graphrevealer.rb -i ~apareslar/projects/Db_documents/test/monarch_graph/sample_datasample_data/ -c 'HGNC'
+../../bin/graphrevealer.rb -i ~apareslar/projects/Db_documents/test/monarch_graph/sample_data -c 'HGNC'
