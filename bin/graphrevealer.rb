@@ -3,18 +3,30 @@
 require 'optparse'
 require 'ruby-graphviz'
 require 'zlib'
-require 'benchmark'
 
 ############################################################################################
 ## METHODS
 ############################################################################################
 def attribute_parser(attrib)
-	if attrib.include?(":") && !attrib.include?("#")
+	if attrib.include?(":") && !attrib.include?("#") && !attrib.include?("/ttl/")
 		attrib = attrib.split(":").first
 	elsif attrib.include?("#")
 		attrib = attrib.split("#").last
+	elsif attrib.include?("/ttl/")
+		attrib = attrib.split("/ttl/").last		
 	end
 	return attrib			
+end
+
+def parse_attribute(attrib)
+	result = []
+	if attrib.include?("|")
+		result = attrib.split("|").map {|attr| attribute_parser(attr)}.join(",")
+		result = attribute_parser(attrib)
+	else
+		result = attribute_parser(attrib)
+	end
+	return result	
 end	
 
 def check_headers(hash)
@@ -41,11 +53,12 @@ def check_headers(hash)
     end		
 end
 
-def get_attributes(file_list)
+def get_attributes(file_list, category = nil)
 	attributes = {}
 	file_list.each do |file|
 		header_fields = []
 		header_values = {}
+		category_relations = {}
 		Zlib::GzipReader.open(file) { |gz|
 			check_header = true
 			gz.each do |line|
@@ -54,9 +67,8 @@ def get_attributes(file_list)
 					header_fields = fields		
 					check_header = false
 				else
-					field_values = fields
-					field_values.each_with_index do |value, i|
-						value = attribute_parser(value)
+					fields.each_with_index do |value, i|
+						value = parse_attribute(value)
 						field = header_fields[i]	
 						query = header_values[field] 
 						if query.nil?
@@ -66,22 +78,76 @@ def get_attributes(file_list)
 						else
 							query << value
 						end
-					end
+					end	
 				end				
 			end	
 		}
-		#header_values.keys.each do |key|
 		header_values.each do |key, values|
-			values.uniq!
-			# puts "#{file}		#{key}		#{header_values[key].first}"
+			values.uniq!	
 			if values.length > 10
-				values = ["test"]
+				header_values[key] = values.first(10)
 			end	
 		end	
 		attributes[file] = header_values		
 	end
 	return attributes	
 end
+
+def get_category_relations(file_list, category)
+	entity2category_relations = {}
+	file_list.each do |file|
+		header_fields = []
+		header_values = {}
+		nodes = File.basename(file, '.all.tsv.gz').split("_")
+		subject_pos = nil
+		object_pos = nil
+		object2category_relations = {}
+		subject2category_relations = {}
+		Zlib::GzipReader.open(file) { |gz|
+			check_header = true
+			gz.each do |line|
+				fields = line.chomp.split("\t")
+				if check_header
+					header_fields = fields
+					header_fields.each_with_index do |field, i|
+						if field == "subject"
+							subject_pos = i	
+						elsif field == "object"
+							object_pos = i
+						end		
+					end			
+					check_header = false
+				else
+					if fields.to_s.include?(category)
+						fields.each_with_index do |value, i|
+							header_field = header_fields[i]
+							if	value.include?(category)
+								if header_field == "subject"
+									query = object2category_relations[fields[object_pos]]
+							   		if query.nil?
+										object2category_relations[fields[object_pos]] = [value]
+									else
+										query << value
+									end
+								elsif header_field == "object"
+									query = subject2category_relations[fields[subject_pos]]
+									if query.nil?
+										subject2category_relations[fields[subject_pos]] = [value]
+									else
+										query << value
+									end
+								end	
+							end
+						end
+					end
+				end
+			end
+		}
+		load_hash_value(entity2category_relations, nodes.last, object2category_relations) unless object2category_relations.size < 1
+		load_hash_value(entity2category_relations, nodes.first, subject2category_relations) unless subject2category_relations.size < 1
+	end
+	return entity2category_relations				
+end	
 
 def load_value(hash_to_load, key, value)
 	query = hash_to_load[key]
@@ -95,6 +161,15 @@ def load_value(hash_to_load, key, value)
 			query << value
 		end
 	end	
+end
+
+def load_hash_value(hash_to_load, key, value_hash)
+	query = hash_to_load[key]
+		if query.nil?
+			hash_to_load[key] = value_hash
+		else
+			query.merge(value_hash) {|key, oldval, newval| oldval | newval}
+		end
 end	
 
 def attr_merger(files_hash)
@@ -110,12 +185,8 @@ def attr_merger(files_hash)
 			value = header_with_values[attribute]
 			if attribute == "subject"
 				load_value(nodeX_attributes, "id", value)
-			elsif attribute == "subject_label"
-				load_value(nodeX_attributes, "label", value)
 			elsif attribute == "subject_taxon"
 				load_value(nodeX_attributes, "taxon", value)
-			elsif attribute == "subject_taxon_label"
-				load_value(nodeX_attributes, "taxon_label", value)
 			end
 		end
 
@@ -128,11 +199,15 @@ def attr_merger(files_hash)
 			value = header_with_values[attribute]
 			if attribute == "object"
 				load_value(nodeX_attributes, "id", value)
-			elsif attribute == "object_label"
-				load_value(nodeX_attributes, "label", value)
 			end	
 		end
 	end
+	nodes_attributes.keys.each do |key|
+		nodes_attributes[key].values.map {|val| val.uniq.join(",").split(",").uniq!}
+		nodes_attributes[key].values.each do |value|
+			value.uniq!
+		end	
+	end		
 	return nodes_attributes										
 end	
 
@@ -150,9 +225,11 @@ end
 def build_label_nodes(node, nodes_with_attributes)
 	str = ""
 	str << "{ #{node} | "
-	nodes_with_attributes[node].keys.each_with_index do |attribute, i|
-		str << "{#{attribute}| #{nodes_with_attributes[attribute]}}"
+	i = 0
+	nodes_with_attributes[node].each do |attribute, attr_values|
+		str << "{#{attribute}| #{attr_values}}"
 		str << "|" unless i == nodes_with_attributes[node].keys.length - 1
+		i = i + 1
 	end
 	str << "}"
 	return str
@@ -161,21 +238,7 @@ end
 def get_relations_attributes(headers)
 	attributes = {}
 	headers.each do |pair, header|
-		attributes[pair] = header.reject {|attrib| attrib.include?("subject") || attrib.include?("object")}
-	end
-	return attributes
-end
-
-def get_nodes_attributes(headers)
-	attributes = {}
-	headers.each do |pair, header|
-		nodeA, nodeB = pair
-		if !attributes.keys.include?(nodeA)
-			attributes[nodeA] = header.select {|attrib| attrib.include?("subject") || attrib.include?("object")}
-		end	
-		if !attributes.keys.include?(nodeB)
-			attributes[nodeB] = header.select {|attrib| attrib.include?("subject") || attrib.include?("object")}
-		end	
+		attributes[pair] = header.reject {|attrib| attrib.include?("subject") || attrib.include?("object") || attrib.include?("label")}
 	end
 	return attributes
 end
@@ -226,14 +289,19 @@ options = {}
 OptionParser.new do |opts|
   opts.banner = "Usage: #{File.basename(__FILE__)} [options]"
 
-  options[:output] = nil
-  opts.on("-o", "--output STRING", "Name of the outputted graph") do |item|
-    options[:output] = item
-  end
-
   options[:input_folder] = nil
   opts.on("-i", "--input_folder PATH", "Path to folder with Monarch data") do |item|
     options[:input_folder] = item
+  end
+
+  options[:category] = nil
+  opts.on("-c", "--category STRING", "Name of the category wanted to be searched through the files") do |item|
+    options[:category] = item
+  end
+
+  options[:graph] = nil
+  opts.on("-g", "--graph PATH", "If a graph is desired, write output path here") do |item|
+    options[:graph] = item
   end
 
 end.parse!
@@ -243,23 +311,33 @@ end.parse!
 ## MAIN
 ############################################################################################
 files = Dir.glob(File.join(options[:input_folder], '*.all.tsv.gz'))
+if options[:graph]
+	puts "Getting the headers and looking for differences..."
+	attributes = get_attributes(files)
 
-puts "Getting the headers and looking for differences..."
-attributes = get_attributes(files[0..1])
+	#check_headers(attributes)	
 
-#check_headers(attributes)	
+	## Getting nodes and relations ##
 
-## Getting nodes and relations ##
+	pairs_with_field_data = {}
+	attributes.each do |file_path, field_and_values|
+		pair = File.basename(file_path, '.all.tsv.gz').split("_")
+		pairs_with_field_data[pair] = field_and_values.keys
+	end
+	relations = pairs_with_field_data.keys
 
-pairs_with_field_data = {}
-attributes.each do |file_path, field_and_values|
-	pair = File.basename(file_path, '.all.tsv.gz').split("_")
-	pairs_with_field_data[pair] = field_and_values.keys
-end
-relations = pairs_with_field_data.keys
+	relation_attributes = get_relations_attributes(pairs_with_field_data)
 
-relation_attributes = get_relations_attributes(pairs_with_field_data)
+	## Creating hash with node name and the values of their attributes, obtained from merging the values of all different files for each node ##
+	nodes_with_attributes = attr_merger(attributes)
 
-## Creating hash with node name and the values of their attributes, obtained from merging the values of all different files for each node ##
-nodes_with_attributes = attr_merger(attributes)
-# makegraph(files, relations, nodes_with_attributes, relation_attributes, attributes, options[:output])
+	makegraph(files, relations, nodes_with_attributes, relation_attributes, attributes, options[:graph])
+elsif options[:category]
+	puts "CATEGORY ANALAISIN"
+	category_relations = get_category_relations(files, options[:category])
+	category_relations.each do |entity, ids_to_category_matches|
+		ids_to_category_matches.each do |id, category_match|
+			File.open("monarch_output_data/#{entity}_#{options[:category]}.txt", 'a') { |file| file.write("#{id}\t#{category_match}\n") }
+		end		
+	end	
+end	
