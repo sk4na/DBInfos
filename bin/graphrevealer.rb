@@ -96,50 +96,24 @@ end
 def get_category_relations(file_list, category)
 	entity2category_relations = {}
 	file_list.each do |file|
-		header_fields = []
-		header_values = {}
 		nodes = File.basename(file, '.all.tsv.gz').split("_")
-		subject_pos = nil
-		object_pos = nil
 		object2category_relations = {}
 		subject2category_relations = {}
 		Zlib::GzipReader.open(file) { |gz|
+			subject_pos = nil
+			object_pos = nil
 			check_header = true
 			gz.each do |line|
 				fields = line.chomp.split("\t")
 				if check_header
-					header_fields = fields
-					header_fields.each_with_index do |field, i|
-						if field == "subject"
-							subject_pos = i	
-						elsif field == "object"
-							object_pos = i
-						end		
-					end			
+					subject_pos = fields.index("subject")
+					object_pos = fields.index("object")
 					check_header = false
 				else
-					if fields.to_s.include?(category)
-						fields.each_with_index do |value, i|
-							header_field = header_fields[i]
-							if	value.include?(category)
-								if header_field == "subject"
-									query = object2category_relations[fields[object_pos]]
-							   		if query.nil?
-										object2category_relations[fields[object_pos]] = [value]
-									else
-										query << value
-									end
-								elsif header_field == "object"
-									query = subject2category_relations[fields[subject_pos]]
-									if query.nil?
-										subject2category_relations[fields[subject_pos]] = [value]
-									else
-										query << value
-									end
-								end	
-							end
-						end
-					end
+					subject = fields[subject_pos]
+					object = fields[object_pos]
+					load_value(object2category_relations, object, subject) if subject.include?(category)
+					load_value(subject2category_relations, subject, object) if object.include?(category)
 				end
 			end
 		}
@@ -332,7 +306,8 @@ if options[:graph]
 	nodes_with_attributes = attr_merger(attributes)
 
 	makegraph(files, relations, nodes_with_attributes, relation_attributes, attributes, options[:graph])
-elsif options[:category]
+end
+if options[:category]
 	puts "Looking for matches with #{options[:category]}"
 	category_relations = get_category_relations(files, options[:category])
 	category_relations.each do |entity, ids_to_category_matches|
