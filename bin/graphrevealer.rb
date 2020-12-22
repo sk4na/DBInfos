@@ -333,7 +333,7 @@ if options[:graph]
 
 	makegraph(files, relations, nodes_with_attributes, relation_attributes, attributes, options[:graph])
 elsif options[:category]
-	puts "CATEGORY ANALAISIN"
+	puts "Looking for matches with #{options[:category]}"
 	category_relations = get_category_relations(files, options[:category])
 	category_relations.each do |entity, ids_to_category_matches|
 		ids_to_category_matches.each do |id, category_match|
