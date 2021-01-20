@@ -3,6 +3,7 @@
 require 'optparse'
 require 'ruby-graphviz'
 require 'zlib'
+require 'fileutils'
 
 ############################################################################################
 ## METHODS
@@ -21,9 +22,8 @@ end
 def parse_attribute(attrib)
 	result = []
 	if attrib.include?("|")
-		result = attrib.split("|").map {|attr| attribute_parser(attr)}.join(",")
-		result = attribute_parser(attrib)
-	else
+		result = attrib.split("|").map {|attr| attribute_parser(attr)}
+	else	
 		result = attribute_parser(attrib)
 	end
 	return result	
@@ -53,12 +53,11 @@ def check_headers(hash)
     end		
 end
 
-def get_attributes(file_list, category = nil)
+def load_tsv_gz_file(file_list, category = nil)
 	attributes = {}
 	file_list.each do |file|
 		header_fields = []
 		header_values = {}
-		category_relations = {}
 		Zlib::GzipReader.open(file) { |gz|
 			check_header = true
 			gz.each do |line|
@@ -68,7 +67,6 @@ def get_attributes(file_list, category = nil)
 					check_header = false
 				else
 					fields.each_with_index do |value, i|
-						value = parse_attribute(value)
 						field = header_fields[i]	
 						query = header_values[field] 
 						if query.nil?
@@ -82,41 +80,41 @@ def get_attributes(file_list, category = nil)
 				end				
 			end	
 		}
-		header_values.each do |key, values|
-			values.uniq!	
-			if values.length > 10
-				header_values[key] = values.first(10)
-			end	
-		end	
 		attributes[file] = header_values		
 	end
 	return attributes	
 end
 
-def get_category_relations(file_list, category)
+def parse_content_for_graph(files_hash)
+	parsed_files_hash = {}
+	files_hash.each do |file_path, header_with_values|
+		parsed_header_with_values = {}
+		header_with_values.each do |header, values| 
+			parsed_header_with_values[header] = values.map {|attribute| parse_attribute(attribute)}.flatten.uniq
+			query = parsed_header_with_values[header]
+			if query.length > 10
+				parsed_header_with_values[header] = query.first(10)
+			end	
+		end
+		parsed_files_hash[file_path] = parsed_header_with_values	
+	end
+	return parsed_files_hash	
+end		
+
+def get_category_relations(files_hash, category)
 	entity2category_relations = {}
-	file_list.each do |file|
-		nodes = File.basename(file, '.all.tsv.gz').split("_")
+	files_hash.each do |file_path, header_with_values|
+		nodes = File.basename(file_path, '.all.tsv.gz').split("_")
 		object2category_relations = {}
 		subject2category_relations = {}
-		Zlib::GzipReader.open(file) { |gz|
-			subject_pos = nil
-			object_pos = nil
-			check_header = true
-			gz.each do |line|
-				fields = line.chomp.split("\t")
-				if check_header
-					subject_pos = fields.index("subject")
-					object_pos = fields.index("object")
-					check_header = false
-				else
-					subject = fields[subject_pos]
-					object = fields[object_pos]
-					load_value(object2category_relations, object, subject) if subject.include?(category)
-					load_value(subject2category_relations, subject, object) if object.include?(category)
-				end
-			end
-		}
+		header_with_values["subject"].each_with_index do |subjectID, i|
+			load_value(object2category_relations, header_with_values["object"][i], subjectID) if subjectID.include?(category)
+		end
+		
+		header_with_values["object"].each_with_index do |objectID, i|	
+			load_value(subject2category_relations, header_with_values["subject"][i], objectID) if objectID.include?(category)
+		end	
+
 		load_hash_value(entity2category_relations, nodes.last, object2category_relations) unless object2category_relations.size < 1
 		load_hash_value(entity2category_relations, nodes.first, subject2category_relations) unless subject2category_relations.size < 1
 	end
@@ -217,7 +215,7 @@ def get_relations_attributes(headers)
 	return attributes
 end
 
-def makegraph(files, arr_nodes, nodes_with_attributes, relation_attributes, attribute_values, output_path)
+def makegraph(files, arr_nodes, nodes_with_attributes, relation_attributes, attribute_values, output_path, simplify)
 	## Creating graph and setting global attributes ##
 	g = GraphViz.new( :G, :type => :digraph )
 	g.node[:shape] = "record"
@@ -234,17 +232,17 @@ def makegraph(files, arr_nodes, nodes_with_attributes, relation_attributes, attr
 		end		
 		nodeA, nodeB = nodeAnodeB
 		relation = g.add_nodes(nodeAnodeB.join('_'))
-		relation[:label] = build_label_relation(nodeAnodeB, relation_attributes, attribute_values[actual_file])
+		relation[:label] = build_label_relation(nodeAnodeB, relation_attributes, attribute_values[actual_file]) unless simplify
 		relation[:color] = "green"
 		if !included_nodes.include?(nodeA)
 			included_nodes << nodeA
 			node_A = g.add_nodes(nodeA)
-			node_A[:label] = build_label_nodes(nodeA, nodes_with_attributes)
+			node_A[:label] = build_label_nodes(nodeA, nodes_with_attributes) unless simplify
 		end
 		if !included_nodes.include?(nodeB)
 			included_nodes << nodeB
 			node_B = g.add_nodes(nodeB)
-			node_B[:label] = build_label_nodes(nodeB, nodes_with_attributes)
+			node_B[:label] = build_label_nodes(nodeB, nodes_with_attributes) unless simplify
 		end
 
 		## Assigning the edges ##
@@ -273,9 +271,19 @@ OptionParser.new do |opts|
     options[:category] = item
   end
 
+  options[:output] = 'monarch_output_data'
+  opts.on("-o", "--output_path PATH", "Name of the folder that will recieve the output from category matches") do |item|
+  	options[:output] = item
+  end	
+
   options[:graph] = nil
   opts.on("-g", "--graph PATH", "If a graph is desired, write output path here") do |item|
     options[:graph] = item
+  end
+
+  options[:simplify] = false
+  opts.on("-s", "--simplify", "If true, the outputted graph will be simplified to display only the connections between entities") do
+    options[:simplify] = true
   end
 
 end.parse!
@@ -284,10 +292,11 @@ end.parse!
 ############################################################################################
 ## MAIN
 ############################################################################################
-files = Dir.glob(File.join(options[:input_folder], '*.all.tsv.gz'))
+files = Dir.glob(File.absolute_path(File.join(options[:input_folder], '*.all.tsv.gz')))
+files_content = load_tsv_gz_file(files)
 if options[:graph]
 	puts "Getting the headers and looking for differences..."
-	attributes = get_attributes(files)
+	attributes = parse_content_for_graph(files_content)
 
 	#check_headers(attributes)	
 
@@ -305,14 +314,15 @@ if options[:graph]
 	## Creating hash with node name and the values of their attributes, obtained from merging the values of all different files for each node ##
 	nodes_with_attributes = attr_merger(attributes)
 
-	makegraph(files, relations, nodes_with_attributes, relation_attributes, attributes, options[:graph])
+	makegraph(files, relations, nodes_with_attributes, relation_attributes, attributes, options[:graph], options[:simplify])
 end
 if options[:category]
 	puts "Looking for matches with #{options[:category]}"
-	category_relations = get_category_relations(files, options[:category])
+	FileUtils.mkdir_p "#{options[:output]}"
+	category_relations = get_category_relations(files_content, options[:category])
 	category_relations.each do |entity, ids_to_category_matches|
 		ids_to_category_matches.each do |id, category_match|
-			File.open("monarch_output_data/#{entity}_#{options[:category]}.txt", 'a') { |file| file.write("#{id}\t#{category_match}\n") }
+			File.open("#{options[:output]}/#{entity}_#{options[:category]}.txt", 'a') { |file| file.write("#{id}\t#{category_match.join(",")}\n") }
 		end		
 	end	
 end	
