@@ -1,7 +1,7 @@
 #! /usr/bin/env ruby
 
 require 'optparse'
-require 'ruby-graphviz'
+# require 'ruby-graphviz'
 require 'zlib'
 require 'fileutils'
 
@@ -215,6 +215,19 @@ def get_relations_attributes(headers)
 	return attributes
 end
 
+def check_entities_position(file_path, entity1, entity2)
+	pos_in_file = {}
+	pair = File.basename(file_path, '.all.tsv.gz').split("_")
+	if pair.first == entity1
+		pos_in_file[entity1] = "subject"
+		pos_in_file[entity2] = "object"
+	else
+		pos_in_file[entity1] = "object"
+		pos_in_file[entity2] = "subject"
+	end
+	return pos_in_file
+end			
+
 def makegraph(files, arr_nodes, nodes_with_attributes, relation_attributes, attribute_values, output_path, simplify)
 	## Creating graph and setting global attributes ##
 	g = GraphViz.new( :G, :type => :digraph )
@@ -286,6 +299,11 @@ OptionParser.new do |opts|
     options[:simplify] = true
   end
 
+  options[:related] = nil
+  opts.on("-r", "--related STRING", "Look for indirect relations between the desired subject (specified by this flag) and object (specified by -c)") do |item|
+    options[:related] = item
+  end
+
 end.parse!
 
 
@@ -324,5 +342,30 @@ if options[:category]
 		ids_to_category_matches.each do |id, category_match|
 			File.open("#{options[:output]}/#{entity}_#{options[:category]}.txt", 'a') { |file| file.write("#{id}\t#{category_match.join(",")}\n") }
 		end		
-	end	
+	end
+	if options[:related]
+		category_relations.keys.each do |entity|
+			targetID_to_entityIDs = {}
+			file_of_interest = files.select {|x| x.include?(entity) & x.include?(options[:related])}.first
+			if file_of_interest
+				pos_in_file = check_entities_position(file_of_interest, entity, options[:related])
+				files_content[file_of_interest][pos_in_file[options[:related]]].each_with_index do |targetID, indx|
+					value = files_content[file_of_interest][pos_in_file[entity]][indx]
+					load_value(targetID_to_entityIDs, targetID, value)
+				end
+				targetID_to_HPs = {}
+				targetID_to_entityIDs.each do |targetID, entityIDs|
+					value = []
+					entityIDs.each do |entityID|
+						value = value | category_relations[entity][entityID] unless category_relations[entity][entityID].nil?
+					end
+					targetID_to_HPs[targetID] = value
+				end
+				targetID_to_entityIDs.each do |targetID, entityIDs|
+					File.open("#{options[:output]}/#{options[:related]}_#{entity}_#{options[:category]}.txt", 'a') { |file| file.write("#{targetID}\t#{entityIDs.join(",")}\t#{targetID_to_HPs[targetID].join(",")}\n") }
+				end		
+			end	
+		end	
+	end
+	puts "Result files created at ./#{options[:output]}"		
 end	
